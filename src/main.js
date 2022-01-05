@@ -16,9 +16,9 @@ let oasisContract = new ethers.Contract('0x657061bf5D268F70eA3eB1BCBeb078234e5Df
 let translateContract = function(addr) {
     switch(addr) {
         case '0x142d360e65d664B3074d03A1AC3fCDECFeCBC5F9':
-            return 'TropicalGulls';
+            return 'Tropical.Gulls';
         case '0x88fA0495d5E9C1B178EAc1D76DF9D729e39fD8E8':
-            return 'Puffers';
+            return 'Poolside Puffers';
         case '0xD27CFd5b254E8D958c0c8e7f99E17A1e33652C1A':
             return 'CryptoR.AT';
         case '0xE765026Cad648785b080E78700cBF6fa1C050d7C':
@@ -26,7 +26,7 @@ let translateContract = function(addr) {
         case '0x9F6466C0ffe9245d994C18c8B0575Af22a5AeEd5':
             return 'Cattos';
         case '0xa48C513189F8971736A1e4f3E786f471bf1EBfE1':
-            return 'DaiquiDudes';
+            return 'Daiqui.Dudes';
         case '0xad2f872AF013C7275eEBC6e7a43d604bA186db6D':
             return 'FunkyBots';
         case '0xf913c55C9E3642dbaA62c26Ff010e97565DeD3B1':
@@ -552,8 +552,14 @@ async function main() {
                     this.id,
                     data.image,
                     '↗️ Received bid for ' + ethers.utils.formatEther(this.bidPrice.toString()) + ' BCH');
-
-            }.bind({token: this.token, id: this.id, bidder: this.bidder, bidPrice: this.bidPrice}));
+            }.bind({token: this.token, id: this.id, bidder: this.bidder, bidPrice: this.bidPrice})).catch(function() {
+                // Can't get image
+                sendTgMessage(
+                    this.token,
+                    this.id,
+                    'https://oasis.cash/assets/images/oasis_logo.svg',
+                    '↗️ Received bid for ' + ethers.utils.formatEther(this.bidPrice.toString()) + ' BCH');
+            });
         }.bind({token: token, id: id, bidder: bidder, bidPrice: bidPrice}));
     });
 
