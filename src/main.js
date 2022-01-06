@@ -529,11 +529,12 @@ let sendTgMessage = async function(token, id, message) {
 
             // Send message
             // @TODO change this to a less awkward way to send the message. Use CURL directly from JS ideally
+            console.log(fullMessage);
             exec("php bin/tg-message.php '" + this.photo + "' '" + fullMessage + "'", (error, stdout, stderr) => {
                 // console.log(stdout);
             });
         }.bind({token: this.token, id: this.id, photo: photo, message: this.message}));
-    }.bind({token, id, message}));
+    }.bind({token: token, id: id, message: message}));
 }
 
 async function main() {
