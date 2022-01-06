@@ -530,7 +530,7 @@ let sendTgMessage = async function(token, id, message) {
 
             // Send message
             // @TODO change this to a less awkward way to send the message. Use CURL directly from JS ideally
-            var cmd = shellescape(['php', 'bin/tg-message', this.photo, fullMessage]);
+            var cmd = shellescape(['php', 'bin/tg-message.php', this.photo, fullMessage]);
             exec(cmd, (error, stdout, stderr) => {
                 // console.log(stdout);
             });
