@@ -496,117 +496,75 @@ let translateOrderType = function(type) {
     return translatedOrderType;
 }
 
-// Send TG messages
-let sendTgMessage = function(token, id, photo, message) {
-    if(photo === null) {
-        // No photo? Display OASIS logo instead
-        photo = 'https://oasis.cash/assets/images/oasis_logo.svg';
-    }
-
-    // Retrieve token name
+let getPhotoForToken = async function(token, id) {
     var nft = new ethers.Contract(token, erc721abi, account);
-    nft.name().then(function(tokenName) {
-        // Generate full message
-        var fullMessage = '[' + tokenName + ' #' + this.info.id + '](https://oasis.cash/token/' + this.info.token + '/' + this.info.id + ')\n\n'
-            + this.info.message
-            + '\n\n[View collection](https://oasis.cash/collection/' + this.info.token + ')';
-
-        console.log(this.info.photo);
-        console.log(fullMessage);
-
-        // Send message
-        // @TODO change this to a less awkward way to send the message. Use CURL directly from JS ideally
-        exec("php bin/tg-message.php '" + this.photo + "' '" + fullMessage + "'", (error, stdout, stderr) => {
-            console.log(stdout);
+    return nft.tokenURI(id).then(function(url) {
+        return fetch(url).then(async function (response) {
+            return response.json();
+        }).then(function (data) {
+            return data.image;
+        }).catch(function () {
+            return null;
         });
-    }.bind({info: this}));
+    }).catch(function() {
+        return null;
+    });
+}
+
+// Send TG messages
+let sendTgMessage = async function(token, id, message) {
+    getPhotoForToken(token, id).then(function(photo) {
+        if(photo === null) {
+            // No photo? Display OASIS logo instead
+            photo = 'https://oasis.cash/assets/images/oasis_logo.svg';
+        }
+
+        var nft = new ethers.Contract(this.token, erc721abi, account);
+        nft.name().then(function(tokenName) {
+            // Generate full message
+            var fullMessage = '[' + tokenName + ' #' + this.id + '](https://oasis.cash/token/' + this.token + '/' + this.id + ')\n\n'
+                + this.message
+                + '\n\n[View collection](https://oasis.cash/collection/' + this.token + ')';
+
+            console.log(this.photo);
+            console.log(fullMessage);
+
+            // Send message
+            // @TODO change this to a less awkward way to send the message. Use CURL directly from JS ideally
+            exec("php bin/tg-message.php '" + this.photo + "' '" + fullMessage + "'", (error, stdout, stderr) => {
+                console.log(stdout);
+            });
+        }.bind({token: this.token, id: this.id, photo: photo, message: this.message}));
+    }.bind({token, id, message}));
 }
 
 async function main() {
-
     // event Bid(IERC721 indexed token, uint256 id, bytes32 indexed hash, address bidder, uint256 bidPrice);
     oasisContract.on('Bid', function(token, id, hash, bidder, bidPrice) {
-        var nft = new ethers.Contract(token, erc721abi, account);
-        nft.tokenURI(id).then(function(url) {
-            fetch(url).then(function(response) {
-                return response.json();
-            }).then(
-                function(data) {
-                sendTgMessage(
-                    this.token,
-                    this.id,
-                    data.image,
-                    '↗️ Received bid for ' + ethers.utils.formatEther(this.bidPrice.toString()) + ' BCH');
-                }.bind({token: this.token, id: this.id, bidder: this.bidder, bidPrice: this.bidPrice})
-            ).catch(
-                function() {
-                    // Can't get image
-                    sendTgMessage(
-                        this.token,
-                        this.id,
-                        null,
-                        '↗️ Received bid for ' + ethers.utils.formatEther(this.bidPrice.toString()) + ' BCH');
-                }.bind({token: this.token, id: this.id, bidder: this.bidder, bidPrice: this.bidPrice})
-            );
-        }.bind({token: token, id: id, bidder: bidder, bidPrice: bidPrice}));
+        sendTgMessage(
+            token,
+            id,
+            '↗️ Received bid for ' + ethers.utils.formatEther(bidPrice.toString()) + ' BCH');
     });
 
     // event Claim(IERC721 indexed token, uint256 id, bytes32 indexed hash, address seller, address taker, uint256 price);
     oasisContract.on('Claim', function(token, id, hash, seller, taker, price) {
-        var nft = new ethers.Contract(token, erc721abi, account);
-        nft.tokenURI(id).then(function(url) {
-            fetch(url).then(function(response) {
-                return response.json();
-            }).then(
-                function(data) {
-                    sendTgMessage(
-                        this.token,
-                        this.id,
-                        data.image,
-                        '✅ Sold for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH');
-                }.bind({token: this.token, id: this.id, seller: this.seller, taker: this.taker, price: this.price})
-            ).catch(
-                function() {
-                    sendTgMessage(
-                        this.token,
-                        this.id,
-                        null,
-                        '✅ Sold for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH');
-                }.bind({token: this.token, id: this.id, seller: this.seller, price: this.price, orderInfo: orderInfo})
-            );
-        }.bind({token: token, id: id, seller: seller, taker: taker, price: price}));
+        sendTgMessage(
+            token,
+            id,
+            '✅ Sold for ' + ethers.utils.formatEther(price.toString()) + ' BCH');
     });
 
     // event MakeOrder(IERC721 indexed token, uint256 id, bytes32 indexed hash, address seller);
     oasisContract.on('MakeOrder', function(token, id, hash, seller) {
         oasisContract.getCurrentPrice(hash).then(function(price) {
             oasisContract.orderInfo(this.hash).then(function(orderInfo) {
-                var nft = new ethers.Contract(this.token, erc721abi, account);
-                nft.tokenURI(this.id).then(function (url) {
-                    fetch(url).then(function (response) {
-                        return response.json();
-                    }).then(
-                        function (data) {
-                            sendTgMessage(
-                                this.token,
-                                this.id,
-                                data.image,
-                                '✳️ Listed for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH\n'
-                                 + 'Auction type: ' + translateOrderType(this.orderInfo.orderType)
-                            );
-                        }.bind({token: this.token, id: this.id, seller: this.seller, price: this.price, orderInfo: orderInfo})
-                    ).catch(
-                        function() {
-                            sendTgMessage(
-                                this.token,
-                                this.id,
-                                null,
-                                '✳️ Listed for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH\n'
-                                + 'Auction type: ' + translateOrderType(this.orderInfo.orderType)
-                            );
-                        }.bind({token: this.token, id: this.id, seller: this.seller, price: this.price, orderInfo: orderInfo})
-                    );
-                }.bind({token: this.token, id: this.id, seller: this.seller, price: this.price}));
+                sendTgMessage(
+                    this.token,
+                    this.id,
+                    '✳️ Listed for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH\n'
+                    + 'Auction type: ' + translateOrderType(orderInfo.orderType)
+                );
             }.bind({token: this.token, id: this.id, seller: this.seller, price: price}));
         }.bind({token: token, id: id, hash: hash, seller: seller}));
     });
