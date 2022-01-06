@@ -12,57 +12,6 @@ const account = wallet.connect(provider);
 // Load OASIS contract
 let oasisContract = new ethers.Contract('0x657061bf5D268F70eA3eB1BCBeb078234e5Df19d', oasisABI.abi, account);
 
-// Translate some common collection addresses to names
-let translateContract = function(addr) {
-    switch(addr) {
-        case '0x142d360e65d664B3074d03A1AC3fCDECFeCBC5F9':
-            return 'Tropical.Gulls';
-        case '0x88fA0495d5E9C1B178EAc1D76DF9D729e39fD8E8':
-            return 'Poolside Puffers';
-        case '0xD27CFd5b254E8D958c0c8e7f99E17A1e33652C1A':
-            return 'CryptoR.AT';
-        case '0xE765026Cad648785b080E78700cBF6fa1C050d7C':
-            return 'CashCats';
-        case '0x9F6466C0ffe9245d994C18c8B0575Af22a5AeEd5':
-            return 'Cattos';
-        case '0xa48C513189F8971736A1e4f3E786f471bf1EBfE1':
-            return 'Daiqui.Dudes';
-        case '0xad2f872AF013C7275eEBC6e7a43d604bA186db6D':
-            return 'FunkyBots';
-        case '0xf913c55C9E3642dbaA62c26Ff010e97565DeD3B1':
-            return 'FatCat';
-        case '0xe017AC8A93790571AF6a93f34cE2258dC900006B':
-            return 'TropicalMonsters';
-        case '0x8FdC63Fe8496D819731e1d447B1eB35951798AA3':
-            return 'DOAer';
-        case '0xff48aAbDDACdc8A6263A2eBC6C1A68d8c46b1bf7':
-            return 'LawPunks';
-        default:
-            return addr;
-    }
-}
-
-let translateOrderType = function(type) {
-    var translatedOrderType = 'Unknown';
-    switch(type) {
-        case 0: translatedOrderType = 'Fixed price'; break;
-        case 1: translatedOrderType = 'Dutch auction'; break;
-        case 2: translatedOrderType = 'English auction'; break;
-    }
-    return translatedOrderType;
-}
-
-let sendTgMessage = function(token, id, photo, message) {
-    var fullMessage = '[' + translateContract(token) + ' #' + id + '](https://oasis.cash/token/' + token + '/' + id + ')\n\n'
-        + message
-        + '\n\n[View collection](https://oasis.cash/collection/' + token + ')';
-
-    // @TODO change this to a less awkward way to send the message. Use CURL directly from JS ideally
-    exec("php bin/tg-message.php '" + photo + "' '" + fullMessage + "'", (error, stdout, stderr) => {
-        console.log(stdout);
-    });
-}
-
 // Load common ERC721 ABI
 let erc721abi = [
     {
@@ -535,6 +484,31 @@ let erc721abi = [
         "type": "function"
     }
 ];
+
+let translateOrderType = function(type) {
+    var translatedOrderType = 'Unknown';
+    switch(type) {
+        case 0: translatedOrderType = 'Fixed price'; break;
+        case 1: translatedOrderType = 'Dutch auction'; break;
+        case 2: translatedOrderType = 'English auction'; break;
+    }
+    return translatedOrderType;
+}
+
+let sendTgMessage = function(token, id, photo, message) {
+    var nft = new ethers.Contract(token, erc721abi, account);
+    nft.name(token).then(function(tokenName) {
+        var fullMessage = '[' + tokenName + ' #' + id + '](https://oasis.cash/token/' + token + '/' + id + ')\n\n'
+            + message
+            + '\n\n[View collection](https://oasis.cash/collection/' + token + ')';
+
+        // @TODO change this to a less awkward way to send the message. Use CURL directly from JS ideally
+        exec("php bin/tg-message.php '" + photo + "' '" + fullMessage + "'", (error, stdout, stderr) => {
+            console.log(stdout);
+        });
+    }.bind({info: this}));
+}
+
 async function main() {
     // event MakeOrder(IERC721 indexed token, uint256 id, bytes32 indexed hash, address seller);
     // event CancelOrder(IERC721 indexed token, uint256 id, bytes32 indexed hash, address seller);
@@ -559,7 +533,7 @@ async function main() {
                     this.id,
                     'https://oasis.cash/assets/images/oasis_logo.svg',
                     '↗️ Received bid for ' + ethers.utils.formatEther(this.bidPrice.toString()) + ' BCH');
-            });
+            }.bind({token: this.token, id: this.id, bidder: this.bidder, bidPrice: this.bidPrice}));
         }.bind({token: token, id: id, bidder: bidder, bidPrice: bidPrice}));
     });
 
@@ -574,8 +548,15 @@ async function main() {
                     this.id,
                     data.image,
                     '✅ Sold for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH');
-
-            }.bind({token: this.token, id: this.id, seller: this.seller, taker: this.taker, price: this.price}));
+            }.bind({token: this.token, id: this.id, seller: this.seller, taker: this.taker, price: this.price})).catch(function() {
+                sendTgMessage(
+                    this.token,
+                    this.id,
+                    'https://oasis.cash/assets/images/oasis_logo.svg',
+                    '✳️ Listed for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH\n'
+                    + 'Auction type: ' + translateOrderType(this.orderInfo.orderType)
+                );
+            }.bind({token: this.token, id: this.id, seller: this.seller, price: this.price, orderInfo: orderInfo}));
         }.bind({token: token, id: id, seller: seller, taker: taker, price: price}));
     });
 
@@ -592,9 +573,16 @@ async function main() {
                             this.id,
                             data.image,
                             '✳️ Listed for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH\n'
-                                    + 'Auction type: ' + translateOrderType(this.orderInfo.orderType)
+                             + 'Auction type: ' + translateOrderType(this.orderInfo.orderType)
                         );
-
+                    }.bind({token: this.token, id: this.id, seller: this.seller, price: this.price, orderInfo: orderInfo})).catch(function() {
+                        sendTgMessage(
+                            this.token,
+                            this.id,
+                            'https://oasis.cash/assets/images/oasis_logo.svg',
+                            '✳️ Listed for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH\n'
+                            + 'Auction type: ' + translateOrderType(this.orderInfo.orderType)
+                        );
                     }.bind({token: this.token, id: this.id, seller: this.seller, price: this.price, orderInfo: orderInfo}));
                 }.bind({token: this.token, id: this.id, seller: this.seller, price: this.price}));
             }.bind({token: this.token, id: this.id, seller: this.seller, price: price}));
