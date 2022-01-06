@@ -539,6 +539,7 @@ let sendTgMessage = async function(token, id, message) {
 async function main() {
     // event Bid(IERC721 indexed token, uint256 id, bytes32 indexed hash, address bidder, uint256 bidPrice);
     oasisContract.on('Bid', function(token, id, hash, bidder, bidPrice) {
+        console.log('Bid');
         sendTgMessage(
             token,
             id,
@@ -547,6 +548,7 @@ async function main() {
 
     // event Claim(IERC721 indexed token, uint256 id, bytes32 indexed hash, address seller, address taker, uint256 price);
     oasisContract.on('Claim', function(token, id, hash, seller, taker, price) {
+        console.log('Claim');
         sendTgMessage(
             token,
             id,
@@ -555,6 +557,7 @@ async function main() {
 
     // event MakeOrder(IERC721 indexed token, uint256 id, bytes32 indexed hash, address seller);
     oasisContract.on('MakeOrder', function(token, id, hash, seller) {
+        console.log('MakeOrder');
         oasisContract.getCurrentPrice(hash).then(function(price) {
             oasisContract.orderInfo(this.hash).then(function(orderInfo) {
                 sendTgMessage(
@@ -564,7 +567,7 @@ async function main() {
                     + 'Auction type: ' + translateOrderType(orderInfo.orderType)
                 );
             }.bind({token: this.token, id: this.id, price: price}));
-        }.bind({token: token, id: id}));
+        }.bind({token: token, id: id, hash: hash}));
     });
 }
 
