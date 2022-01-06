@@ -2,6 +2,7 @@ const { exec } = require("child_process");
 const oasisABI = require('./abi/oasis.json');
 const {ethers} = require("ethers");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+var shellescape = require('shell-escape');
 
 // Setup network
 var provider = new ethers.providers.JsonRpcProvider('https://smartbch.fountainhead.cash/mainnet', 10000);
@@ -529,7 +530,8 @@ let sendTgMessage = async function(token, id, message) {
 
             // Send message
             // @TODO change this to a less awkward way to send the message. Use CURL directly from JS ideally
-            exec("php bin/tg-message.php '" + this.photo + "' '" + fullMessage + "'", (error, stdout, stderr) => {
+            var cmd = shellescape(['php', 'bin/tg-message', this.photo, fullMessage]);
+            exec(cmd, (error, stdout, stderr) => {
                 // console.log(stdout);
             });
         }.bind({token: this.token, id: this.id, photo: photo, message: this.message}));
@@ -568,4 +570,4 @@ async function main() {
     });
 }
 
-main();
+//main();
