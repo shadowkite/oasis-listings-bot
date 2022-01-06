@@ -486,6 +486,7 @@ let erc721abi = [
     }
 ];
 
+// List of approved collections
 let approvedNFTs = [
     '0xE765026Cad648785b080E78700cBF6fa1C050d7C', // CashCats
     '0xD27CFd5b254E8D958c0c8e7f99E17A1e33652C1A', // CryptoR.AT
@@ -552,10 +553,13 @@ let sendTgMessage = async function(token, id, message) {
             // Send message
             // @TODO change this to a less awkward way to send the message. Use CURL directly from JS ideally
             var cmd = shellescape(['php', 'bin/tg-message.php', this.photo, fullMessage]);
+            /**
             console.log(cmd);
-            //exec(cmd, (error, stdout, stderr) => {
+            /*/
+            exec(cmd, (error, stdout, stderr) => {
                 // console.log(stdout);
-            //});
+            });
+            /**/
         }.bind({token: this.token, id: this.id, photo: photo, message: this.message}));
     }.bind({token: token, id: id, message: message}));
 }
