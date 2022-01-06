@@ -496,6 +496,7 @@ let translateOrderType = function(type) {
     return translatedOrderType;
 }
 
+// Get image, when it fails always return null
 let getPhotoForToken = async function(token, id) {
     var nft = new ethers.Contract(token, erc721abi, account);
     return nft.tokenURI(id).then(function(url) {
@@ -565,8 +566,8 @@ async function main() {
                     '✳️ Listed for ' + ethers.utils.formatEther(this.price.toString()) + ' BCH\n'
                     + 'Auction type: ' + translateOrderType(orderInfo.orderType)
                 );
-            }.bind({token: this.token, id: this.id, seller: this.seller, price: price}));
-        }.bind({token: token, id: id, hash: hash, seller: seller}));
+            }.bind({token: this.token, id: this.id, price: price}));
+        }.bind({token: token, id: id}));
     });
 }
 
